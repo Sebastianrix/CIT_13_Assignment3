@@ -21,14 +21,14 @@ public class Server
 
         var server = new TcpListener(IPAddress.Loopback, _port);
         server.Start();
-
-        Console.WriteLine($"Server is live on port : {_port}");
+        Console.WriteLine($".::.:::....::  Server is live  ::....:::.::. \non port : {_port}\nIP      : {IPAddress.Loopback}");
 
         while (true)
         {
             var client = server.AcceptTcpClient();
             Console.WriteLine("Client connected");
-            HandleClient(client);
+
+            Task.Run(() => HandleClient(client));
         }
     }
     private void HandleClient(TcpClient client)
