@@ -42,7 +42,7 @@ public class Server
 
             Console.WriteLine($"Message from client decoded is : {msg}");
 
-            if (msg == "{}") 
+            if (msg == "{}")
             {
                 var response = new Response
                 {
@@ -50,8 +50,29 @@ public class Server
                 };
 
                 var jason = ToJson(response);
-                WriteToStream(stream,jason);
-           
+                WriteToStream(stream, jason);
+
+            }
+            else
+            {
+                var request = FromJson(msg);
+
+                if(request == null)
+                {
+                   
+                }
+
+                string[] validMehods = ["create", "read", "update", "delete", "echo"];
+
+                if (!validMehods.Contains(request.Method))
+                {
+                    var response = new Response
+                    {
+                        Status = "illegal method"
+                    };
+                    var json = ToJson(response);
+                    WriteToStream(stream, json);
+                }
             }
 
 
