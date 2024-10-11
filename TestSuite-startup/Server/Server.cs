@@ -46,7 +46,8 @@ public class Server
             {
                 var response = new Response
                 {
-                    Status = "missing method"
+                    Status = "missing method",
+                    Body = "skibbidi"
                 };
 
                 var jason = ToJson(response);
@@ -59,7 +60,7 @@ public class Server
 
                 if(request == null)
                 {
-                   
+                  
                 }
 
                 string[] validMehods = ["create", "read", "update", "delete", "echo"];
@@ -68,10 +69,45 @@ public class Server
                 {
                     var response = new Response
                     {
-                        Status = "illegal method"
+                        Status = "illegal method",
+                        Body = "skibidi"
                     };
                     var json = ToJson(response);
                     WriteToStream(stream, json);
+                }
+                switch (request.Method)
+                {
+                    case "create":
+                        Console.WriteLine("create called");
+
+                        //HandleCreateRequest(request, stream);
+                        break;
+                    case "read":
+                        Console.WriteLine("read called");
+                        // HandleReadRequest(request, stream);
+                        break;
+                    case "update":
+                        Console.WriteLine("update called");
+                        //HandleUpdateRequest(request, stream);
+                        break;
+                    case "delete":
+                        Console.WriteLine("delete called");
+                        //HandleDeleteRequest(request, stream);
+                        break;
+                    case "echo":
+                        Console.WriteLine("echo called");
+                        var response = new Response
+                        {
+                            Status = "1 Ok",
+                            Body = request.Body
+                        };
+                        var jason = ToJson(response);
+                        WriteToStream(stream, jason);
+                        //HandleEchoRequest(request, stream);
+                        break;
+                    default:
+                        // This should not happen due to earlier validation
+                        break;
                 }
             }
 
