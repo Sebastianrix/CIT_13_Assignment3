@@ -1,10 +1,13 @@
-﻿
-using System.Net.Sockets;
-using System.Net;
-using System.Text;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
-using System;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 
 
 public class Server
@@ -49,90 +52,108 @@ public class Server
 
 
             Console.WriteLine($"Message from client decoded is : {msg}");
+            string[] validMethods = ["create", "read", "update", "delete", "echo"];
 
-            if (msg == "{}")
+
+            if (string.IsNullOrWhiteSpace(msg))
             {
-                var response = new Response
-                {
-                    Status = "missing method, missing date",
-                    Body = "skibbidi"
-                };
-
-                var jason = ToJson(response);
-                WriteToStream(stream, jason);
+                var response = new Response { Status = "missing method, missing date" };
+                WriteToStream(stream, ToJson(response));
                 Console.WriteLine(response.Status);
+                return;
             }
-            else
+
+            if (msg.Trim() == "{}")
             {
-                var request = FromJson(msg);
-
-                    string[] validMehods = ["create", "read", "update", "delete", "echo"];
-
-
-                if (!validMehods.Contains(request.Method))
-                {
-                    var response = new Response
-                    {
-                        Status = "4 Illegal method"
-                        //Body = "skibidi"
-                    };
-                    Console.WriteLine(response.Status);
-                    var json = ToJson(response);
-                    WriteToStream(stream, json);
-                }
-                else
-                if (string.IsNullOrEmpty(request.Date))
-                {
-                    var response = new Response
-                    {
-                        Status = "4 missing date"
-                        //Body = "skibidi"
-                    };
-                    Console.WriteLine(response.Status);
-                    var json = ToJson(response);
-                    WriteToStream(stream, json);
-                }
-                else
-                if (request.Method != "echo" && String.IsNullOrEmpty(request.Path)) 
-                {
-                    var response = new Response
-                    {
-                        Status = "4 missing path"
-                        //Body = "skibidi"
-                    };
-                    Console.WriteLine(response.Status);
-                    var json = ToJson(response);
-                    WriteToStream(stream, json);
-                }
-
-     
-                switch (request.Method)
-                {
-                    case "create":
-                        Console.WriteLine("create called");
-                        CreateRequestHandle(request, stream);
-                        break;
-                    case "read":
-                        Console.WriteLine("read called");
-                        ReadRequestHandle(request, stream);
-                        break;
-                    case "update":
-                        Console.WriteLine("update called");
-                        UpdateRequestHandle(request, stream);
-                        break;
-                    case "delete":
-                        Console.WriteLine("delete called");
-                        DeleteRequestHandle(request, stream);
-                        break;
-                    case "echo":
-                        Console.WriteLine("echo called");                 
-                        EchoRequestHandle(request, stream);
-                        break;
-                    default:
-                        // This should not happen due to earlier validation
-                        break;
-                }
+                var response = new Response { Status = "missing method, missing date" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
             }
+
+            var request = FromJson(msg);
+
+
+            // Validate Method
+            if (string.IsNullOrWhiteSpace(request.Method))
+            {
+                var response = new Response { Status = "missing method" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
+
+            if (!validMethods.Contains(request.Method.ToLower()))
+            {
+                var response = new Response { Status = "4 Illegal method" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
+
+            // Validate Date
+            if (string.IsNullOrEmpty(request.Date))
+            {
+                var response = new Response { Status = "4 missing date" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
+
+            if (!IsValidUnixTime(request.Date))
+            {
+                var response = new Response { Status = "4 Illegal date" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
+
+            // Validate Path for methods other than 'echo'
+            if (request.Method.ToLower() != "echo" && string.IsNullOrEmpty(request.Path))
+            {
+                var response = new Response { Status = "4 missing path" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
+
+            // Validate Body for methods that require it
+            if ((request.Method.ToLower() == "create" || request.Method.ToLower() == "update" || request.Method.ToLower() == "echo")
+                && string.IsNullOrEmpty(request.Body))
+            {
+                var response = new Response { Status = "4 missing body" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
+     
+            switch (request.Method)
+            {
+                case "create":
+                    Console.WriteLine("create called");
+                    CreateRequestHandle(request, stream);
+                    break;
+                case "read":
+                    Console.WriteLine("read called");
+                    ReadRequestHandle(request, stream);
+                    break;
+                case "update":
+                    Console.WriteLine("update called");
+                    UpdateRequestHandle(request, stream);
+                    break;
+                case "delete":
+                    Console.WriteLine("delete called");
+                    DeleteRequestHandle(request, stream);
+                    break;
+                case "echo":
+                    Console.WriteLine("echo called");
+                    EchoRequestHandle(request, stream);
+                    break;
+                default:
+                    // This should not happen due to earlier validation
+                    break;
+            }
+
 
 
         }
@@ -140,7 +161,8 @@ public class Server
     }
 
     // Request handlers
-    private void EchoRequestHandle(Request request, NetworkStream stream){
+    private void EchoRequestHandle(Request request, NetworkStream stream)
+    {
         var response = new Response
         {
             Status = "1 Ok",
@@ -191,20 +213,24 @@ public class Server
     }
 
 
-    private string ReadFromStream(NetworkStream stream) 
+    private string ReadFromStream(NetworkStream stream)
     {
         var buffer = new byte[1024];
-       var readCount = stream.Read(buffer); // read the encoded data from client
+        var readCount = stream.Read(buffer); // read the encoded data from client
         return Encoding.UTF8.GetString(buffer, 0, readCount);  //Decode
     }
 
     private void WriteToStream(NetworkStream stream, string msg)
     {
-       var buffer = Encoding.UTF8.GetBytes(msg); //Encode again
+        var buffer = Encoding.UTF8.GetBytes(msg); //Encode again
         stream.Write(buffer);
     }
+    private bool IsValidUnixTime(string date)
+    {
+        return long.TryParse(date, out long timestamp) && timestamp > 0;
+    }
 
-    public static string ToJson(Response response)
+        public static string ToJson(Response response)
     {
         return JsonSerializer.Serialize(response, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
     }
