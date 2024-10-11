@@ -10,10 +10,18 @@ using System.Text.Json;
 public class Server
 {
     private readonly int _port;
+    private static List<Category> categories = new List<Category>();
+    private static int nextCategoryId = 1;
 
     public Server(int port)
     {
         _port = port;
+
+        // Initialize the categories list with sample data
+        categories.Add(new Category { Id = nextCategoryId++, Name = "Beverages" });
+        categories.Add(new Category { Id = nextCategoryId++, Name = "Condiments" });
+        categories.Add(new Category { Id = nextCategoryId++, Name = "Confections" });
+        categories.Add(new Category { Id = nextCategoryId++, Name = "Condiments" });
     }
     public void Run()
     {
@@ -38,7 +46,7 @@ public class Server
 
             var stream = client.GetStream(); //picks up stream from client
             string msg = ReadFromStream(stream); //calls read from stream method
-                                             
+
 
             Console.WriteLine($"Message from client decoded is : {msg}");
 
@@ -46,64 +54,79 @@ public class Server
             {
                 var response = new Response
                 {
-                    Status = "missing method",
+                    Status = "missing method, missing date",
                     Body = "skibbidi"
                 };
 
                 var jason = ToJson(response);
                 WriteToStream(stream, jason);
-
+                Console.WriteLine(response.Status);
             }
             else
             {
                 var request = FromJson(msg);
 
-                if(request == null)
-                {
-                  
-                }
+                    string[] validMehods = ["create", "read", "update", "delete", "echo"];
 
-                string[] validMehods = ["create", "read", "update", "delete", "echo"];
 
                 if (!validMehods.Contains(request.Method))
                 {
                     var response = new Response
                     {
-                        Status = "illegal method",
-                        Body = "skibidi"
+                        Status = "4 Illegal method"
+                        //Body = "skibidi"
                     };
+                    Console.WriteLine(response.Status);
                     var json = ToJson(response);
                     WriteToStream(stream, json);
                 }
+                else
+                if (string.IsNullOrEmpty(request.Date))
+                {
+                    var response = new Response
+                    {
+                        Status = "4 missing date"
+                        //Body = "skibidi"
+                    };
+                    Console.WriteLine(response.Status);
+                    var json = ToJson(response);
+                    WriteToStream(stream, json);
+                }
+                else
+                if (request.Method != "echo" && String.IsNullOrEmpty(request.Path)) 
+                {
+                    var response = new Response
+                    {
+                        Status = "4 missing path"
+                        //Body = "skibidi"
+                    };
+                    Console.WriteLine(response.Status);
+                    var json = ToJson(response);
+                    WriteToStream(stream, json);
+                }
+
+     
                 switch (request.Method)
                 {
                     case "create":
                         Console.WriteLine("create called");
-
-                        //HandleCreateRequest(request, stream);
+                        CreateRequestHandle(request, stream);
                         break;
                     case "read":
                         Console.WriteLine("read called");
-                        // HandleReadRequest(request, stream);
+                        ReadRequestHandle(request, stream);
                         break;
                     case "update":
                         Console.WriteLine("update called");
-                        //HandleUpdateRequest(request, stream);
+                        UpdateRequestHandle(request, stream);
                         break;
                     case "delete":
                         Console.WriteLine("delete called");
-                        //HandleDeleteRequest(request, stream);
+                        DeleteRequestHandle(request, stream);
                         break;
                     case "echo":
-                        Console.WriteLine("echo called");
-                        var response = new Response
-                        {
-                            Status = "1 Ok",
-                            Body = request.Body
-                        };
-                        var jason = ToJson(response);
-                        WriteToStream(stream, jason);
-                        //HandleEchoRequest(request, stream);
+                        Console.WriteLine("echo called");                 
+                        EchoRequestHandle(request, stream);
                         break;
                     default:
                         // This should not happen due to earlier validation
@@ -115,6 +138,58 @@ public class Server
         }
         catch { }
     }
+
+    // Request handlers
+    private void EchoRequestHandle(Request request, NetworkStream stream){
+        var response = new Response
+        {
+            Status = "1 Ok",
+            Body = request.Body
+        };
+        var jason = ToJson(response);
+        WriteToStream(stream, jason);
+    }
+    private void CreateRequestHandle(Request request, NetworkStream stream)
+    {
+        var response = new Response
+        {
+            Status = "2 Created",
+            Body = request.Body
+        };
+        var jason = ToJson(response);
+        WriteToStream(stream, jason);
+    }
+    private void ReadRequestHandle(Request request, NetworkStream stream)
+    {
+        var response = new Response
+        {
+            Status = "1 Ok",
+            Body = request.Body
+        };
+        var jason = ToJson(response);
+        WriteToStream(stream, jason);
+    }
+    private void DeleteRequestHandle(Request request, NetworkStream stream)
+    {
+        var response = new Response
+        {
+            Status = "3 Updated",
+            Body = request.Body
+        };
+        var jason = ToJson(response);
+        WriteToStream(stream, jason);
+    }
+    private void UpdateRequestHandle(Request request, NetworkStream stream)
+    {
+        var response = new Response
+        {
+            Status = "3 Updated",
+            Body = request.Body
+        };
+        var jason = ToJson(response);
+        WriteToStream(stream, jason);
+    }
+
 
     private string ReadFromStream(NetworkStream stream) 
     {
