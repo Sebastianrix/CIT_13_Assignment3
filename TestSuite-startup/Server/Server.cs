@@ -108,10 +108,18 @@ public class Server
                 return;
             }
 
-            // Validate Path for methods other than 'echo'
+            // Validate if Path is missing for methods other than 'echo'
             if (request.Method.ToLower() != "echo" && string.IsNullOrEmpty(request.Path))
             {
                 var response = new Response { Status = "4 missing path" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
+            // Validate if Path is correct
+            if (request.Method.ToLower() !="echo" && !IsValidPath(request.Path))
+            {
+                var response = new Response { Status = "4 Bad Request" };
                 WriteToStream(stream, ToJson(response));
                 Console.WriteLine(response.Status);
                 return;
@@ -249,7 +257,14 @@ public class Server
             return false;
         }
     }
-
+    private bool IsValidPath(string path)
+    {
+        if (path.StartsWith("/api/categories"))
+        {
+            return true;
+        }
+        else return false;
+    }
         public static string ToJson(Response response)
     {
         return JsonSerializer.Serialize(response, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
