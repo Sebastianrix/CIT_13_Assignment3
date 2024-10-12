@@ -126,7 +126,14 @@ public class Server
                 Console.WriteLine(response.Status);
                 return;
             }
-     
+            // Validate bodyy for Jason in methods that require it
+            if ((request.Method.ToLower() == "create" || request.Method.ToLower() == "update") && !IsValidJason(request.Body))
+            {
+                var response = new Response { Status = "4 illegal body" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
             switch (request.Method)
             {
                 case "create":
@@ -228,6 +235,19 @@ public class Server
     private bool IsValidUnixTime(string date)
     {
         return long.TryParse(date, out long timestamp) && timestamp > 0;
+    }
+
+    private bool IsValidJason(string body) //inspired by : https://code-maze.com/csharp-how-to-ensure-a-string-is-valid-json/
+    {
+        try
+        {
+            JsonDocument.Parse(body);
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
     }
 
         public static string ToJson(Response response)
