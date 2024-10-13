@@ -73,9 +73,9 @@ public class Server
                 return;
             }
 
-            if (msg.Trim() == "{}")
+            if (msg.Trim() == "{}") 
             {
-                var response = new Response { Status = "missing method" };
+                var response = new Response { Status = "missing method, missing date" };
                 WriteToStream(stream, ToJson(response));
                 Console.WriteLine(response.Status);
                 return;
@@ -83,7 +83,14 @@ public class Server
 
             var request = FromJson(msg);
 
-
+            // Validate Date
+            if (string.IsNullOrEmpty(request.Date))
+            {
+                var response = new Response { Status = "4 missing date" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
             // Validate Method
             if (string.IsNullOrWhiteSpace(request.Method))
             {
@@ -100,8 +107,16 @@ public class Server
                 Console.WriteLine(response.Status);
                 return;
             }
+            // Validate if Path is empty
+            if (request.Method.ToLower() != "echo" && string.IsNullOrEmpty(request.Path))
+            {
+                var response = new Response { Status = "4 missing resource" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
             // Validate Body for methods that require it
-            if ((request.Method.ToLower() != "read" || request.Method.ToLower() != "delete") && string.IsNullOrEmpty(request.Body))
+            if (request.Method.ToLower() != "read" && request.Method.ToLower() != "delete" && string.IsNullOrEmpty(request.Body))
             {
                 var response = new Response { Status = "4 missing body" };
                 WriteToStream(stream, ToJson(response));
@@ -116,14 +131,7 @@ public class Server
                 Console.WriteLine(response.Status);
                 return;
             }
-            // Validate Date
-            if (string.IsNullOrEmpty(request.Date))
-            {
-                var response = new Response { Status = "4 missing date" };
-                WriteToStream(stream, ToJson(response));
-                Console.WriteLine(response.Status);
-                return;
-            }
+      
 
             if (!IsValidUnixTime(request.Date))
             {
@@ -134,14 +142,7 @@ public class Server
             }
 
 
-            // Validate if Path is empty
-            if (request.Method.ToLower() != "echo" && string.IsNullOrEmpty(request.Path))
-            { 
-                var response = new Response { Status = "4 missing resource" };
-                WriteToStream(stream, ToJson(response));
-                Console.WriteLine(response.Status);
-                return;
-            }
+            
 
             // Validate if Path is correct
             if (request.Method.ToLower() !="echo" && !IsValidPath(request.Path))
@@ -168,8 +169,15 @@ public class Server
                 Console.WriteLine(response.Status);
                 return;
             }
+            // Validate ID if its within range of the ID list
+            if ((request.Method.ToLower() == "read" || request.Method.ToLower() == "update" || request.Method.ToLower() == "delete") && !IsValidInt(request.Path))
+            {
+                var response = new Response { Status = "5 Not found" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
 
-        
             switch (request.Method)
             {
                 case "create":
@@ -300,14 +308,31 @@ public class Server
         }
         else return false;
     }
-    private bool IsValidID(string path)
+    private bool IsValidInt(string path)  //Validates if the ID is a number and if it is in the list
     {
         string[] SegmentsPath = path.Split('/');
-        if (int.TryParse(SegmentsPath[^1],out _)){
+        if (int.TryParse(SegmentsPath[^1], out int id) && id <= nextCategoryId)
+        {
             return true;
-        } else return false;
+        }
+        else
+        {
+            return false;
+        }
     }
-        public static string ToJson(Response response)
+    private bool IsValidID(string path) //Validates if the ID is a number
+    {
+        string[] SegmentsPath = path.Split('/');
+        if (int.TryParse(SegmentsPath[^1],out _))
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+    public static string ToJson(Response response)
     {
         return JsonSerializer.Serialize(response, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
     }
