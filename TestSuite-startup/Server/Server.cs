@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -15,9 +16,9 @@ public class Server
     private readonly int _port;
     private static List<Category> categories = new List<Category>();
     private static int nextCategoryId = 1;
-
+    private static readonly object categoriesLock = new object();
     // JSON options to use camelCase property names
-    private static readonly JsonSerializerOptions options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase};
+    private static readonly JsonSerializerOptions options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
 
 
@@ -29,7 +30,7 @@ public class Server
         categories.Add(new Category { Id = nextCategoryId++, Name = "Beverages" });
         categories.Add(new Category { Id = nextCategoryId++, Name = "Condiments" });
         categories.Add(new Category { Id = nextCategoryId++, Name = "Confections" });
-      //  categories.Add(new Category { Id = nextCategoryId++, Name = "Condiments" });
+        //  categories.Add(new Category { Id = nextCategoryId++, Name = "Condiments" });
 
 
 
@@ -168,7 +169,7 @@ public class Server
                 return;
             }
             // Validate ID, Update and Delete
-            if ((/*request.Method.ToLower() == "read" ||*/ request.Method.ToLower() == "update" || request.Method.ToLower() == "delete") && !IsNumber(request.Path))
+            if ((request.Method.ToLower() == "update" || request.Method.ToLower() == "delete") && !IsNumber(request.Path))
             {
                 var response = new Response { Status = "4 Bad Request" };
                 WriteToStream(stream, ToJson(response));
@@ -176,14 +177,14 @@ public class Server
                 return;
             }
             // Validate ID if its within range of the ID list
-            if ((/*request.Method.ToLower() == "read" ||*/ request.Method.ToLower() == "update" || request.Method.ToLower() == "delete") && !IsValidInt(request.Path))
+            if ((request.Method.ToLower() == "update" || request.Method.ToLower() == "delete") && !IsValidInt(request.Path))
             {
                 var response = new Response { Status = "5 Not found" };
                 WriteToStream(stream, ToJson(response));
                 Console.WriteLine(response.Status);
                 return;
             }
-            if (request.Method.ToLower() == "read" && IsValidLastSegment(request.Path) && !IsValidInt(request.Path))
+            if (request.Method.ToLower() == "read" && !ShortPath(request.Path) && IsValidLastSegment(request.Path) && !IsValidInt(request.Path))
             {
                 var response = new Response { Status = "5 Not found" };
                 WriteToStream(stream, ToJson(response));
@@ -234,19 +235,25 @@ public class Server
         var jason = ToJson(response);
         WriteToStream(stream, jason);
     }
+
+
     private void CreateRequestHandle(Request request, NetworkStream stream)
     {
-        var newCategory = JsonSerializer.Deserialize<Category>(request.Body, options);
+        lock (categoriesLock) // Locking
+        {
+            var newCategory = JsonSerializer.Deserialize<Category>(request.Body, options);
 
-        newCategory.Id = nextCategoryId++;
-        categories.Add(newCategory);
-
+        
+            newCategory.Id = nextCategoryId++;
+            categories.Add(newCategory);
+        
         var response = new Response
         {
             Status = "2 Created",
             Body = JsonSerializer.Serialize(newCategory, options)
         };
         WriteToStream(stream, ToJson(response));
+        }
     }
 
 
@@ -254,43 +261,39 @@ public class Server
     {
         Response response;
 
-        // Check if the path ends with an ID
-        if (IsValidInt(request.Path))
+        lock (categoriesLock) // Locking
         {
-            Console.WriteLine("YESYESYESEYSEYS EYSEYSEYS YSESYEYSE");
-           // Fetch the specific category by ID
-           var category = categories[GetIdFromPath(request.Path)];
-            response = new Response
+            // Decide if we should return all categories or a specific one
+            if (IsValidInt(request.Path))
             {
-                Status = "1 Ok",
-                Body = JsonSerializer.Serialize(category, options)
-            };
-            Console.WriteLine(response.Status + " " + response.Body);
-        }
-        else
-        {
-            Console.WriteLine("NONONONONONONONNONONO");
-           // Return all categories
-           response = new Response
+                // Fetch the specific category by ID
+                var category = categories[GetIdFromPath(request.Path)-1];
+                response = new Response { Status = "1 Ok", Body = JsonSerializer.Serialize(category, options) };
+            }
+            else
             {
-                Status = "1 Ok",
-                Body = JsonSerializer.Serialize(categories, options)
-
-            };
-            Console.WriteLine(response.Status + " " + response.Body);
+                // Return all categories
+                response = new Response { Status = "1 Ok", Body = JsonSerializer.Serialize(categories, options) };
+            }
+            var jsonResponse = ToJson(response);
+            WriteToStream(stream, jsonResponse);
         }
-        var jsonResponse = ToJson(response);
-        WriteToStream(stream, jsonResponse);
     }
+
     private void DeleteRequestHandle(Request request, NetworkStream stream)
     {
-        var response = new Response
+        lock (categoriesLock) // Locking the categories list
         {
-            Status = "1 Ok",
-            Body = request.Body
-        };
-        var jason = ToJson(response);
-        WriteToStream(stream, jason);
+            var category = categories[GetIdFromPath(request.Path)-1];
+            categories.Remove(category);
+            var response = new Response
+            {
+                Status = "1 Ok",
+                Body = request.Body
+            };
+            var jason = ToJson(response);
+            WriteToStream(stream, jason);
+        }
     }
     private void UpdateRequestHandle(Request request, NetworkStream stream)
     {
@@ -346,6 +349,19 @@ public class Server
         }
 
     }
+    private static bool ShortPath(string path)
+    {
+        string[] SegmentsPath = path.Split('/');
+        if (SegmentsPath.Length == 3)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
     private static bool IsValidPath(string path)
     {
         if (path.StartsWith("/api/categories"))
@@ -369,7 +385,7 @@ public class Server
     private static bool IsNumber(string path) //Validates if the ID is a number
     {
         string[] SegmentsPath = path.Split('/');
-        if (int.TryParse(SegmentsPath[^1],out _))
+        if (int.TryParse(SegmentsPath[^1], out _))
         {
             return true;
         }
