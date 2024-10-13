@@ -57,7 +57,7 @@ public class Server
 
             if (string.IsNullOrWhiteSpace(msg))
             {
-                var response = new Response { Status = "missing method, missing date" };
+                var response = new Response { Status = "missing method" };
                 WriteToStream(stream, ToJson(response));
                 Console.WriteLine(response.Status);
                 return;
@@ -65,7 +65,7 @@ public class Server
 
             if (msg.Trim() == "{}")
             {
-                var response = new Response { Status = "missing method, missing date" };
+                var response = new Response { Status = "missing method" };
                 WriteToStream(stream, ToJson(response));
                 Console.WriteLine(response.Status);
                 return;
@@ -90,7 +90,23 @@ public class Server
                 Console.WriteLine(response.Status);
                 return;
             }
-
+            // Validate Body for methods that require it
+            if ((request.Method.ToLower() != "read" || request.Method.ToLower() != "delete") && string.IsNullOrEmpty(request.Body))
+            {
+                Console.WriteLine("YOU CANT PASS!!!");
+                var response = new Response { Status = "4 missing body" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
+            // Validate body for Jason in methods that require it
+            if ((request.Method.ToLower() == "create" || request.Method.ToLower() == "update") && !IsValidJason(request.Body))
+            {
+                var response = new Response { Status = "4 illegal body" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
             // Validate Date
             if (string.IsNullOrEmpty(request.Date))
             {
@@ -108,14 +124,16 @@ public class Server
                 return;
             }
 
-            // Validate if Path is missing for methods other than 'echo'
+
+            // Validate if Path is empty
             if (request.Method.ToLower() != "echo" && string.IsNullOrEmpty(request.Path))
-            {
-                var response = new Response { Status = "4 missing path" };
+            { 
+                var response = new Response { Status = "4 missing resource" };
                 WriteToStream(stream, ToJson(response));
                 Console.WriteLine(response.Status);
                 return;
             }
+
             // Validate if Path is correct
             if (request.Method.ToLower() !="echo" && !IsValidPath(request.Path))
             {
@@ -127,7 +145,6 @@ public class Server
             // Validate that create doesn't have ID
             if (request.Method.ToLower() == "create" && IsValidID(request.Path))
             {
-                Console.WriteLine("YOU SHALL NOT PASS!");
                 var response = new Response { Status = "4 Bad Request" };
                 WriteToStream(stream, ToJson(response));
                 Console.WriteLine(response.Status);
@@ -144,23 +161,7 @@ public class Server
                 return;
             }
 
-            // Validate Body for methods that require it
-            if ((request.Method.ToLower() == "create" || request.Method.ToLower() == "update" || request.Method.ToLower() == "echo")
-                && string.IsNullOrEmpty(request.Body))
-            {
-                var response = new Response { Status = "4 missing body" };
-                WriteToStream(stream, ToJson(response));
-                Console.WriteLine(response.Status);
-                return;
-            }
-            // Validate bodyy for Jason in methods that require it
-            if ((request.Method.ToLower() == "create" || request.Method.ToLower() == "update") && !IsValidJason(request.Body))
-            {
-                var response = new Response { Status = "4 illegal body" };
-                WriteToStream(stream, ToJson(response));
-                Console.WriteLine(response.Status);
-                return;
-            }
+        
             switch (request.Method)
             {
                 case "create":
