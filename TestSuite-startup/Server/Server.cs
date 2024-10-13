@@ -16,6 +16,11 @@ public class Server
     private static List<Category> categories = new List<Category>();
     private static int nextCategoryId = 1;
 
+    // JSON options to use camelCase property names
+    private static readonly JsonSerializerOptions options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase};
+
+
+
     public Server(int port)
     {
         _port = port;
@@ -25,6 +30,11 @@ public class Server
         categories.Add(new Category { Id = nextCategoryId++, Name = "Condiments" });
         categories.Add(new Category { Id = nextCategoryId++, Name = "Confections" });
         categories.Add(new Category { Id = nextCategoryId++, Name = "Condiments" });
+
+
+
+
+
     }
     public void Run()
     {
@@ -93,7 +103,6 @@ public class Server
             // Validate Body for methods that require it
             if ((request.Method.ToLower() != "read" || request.Method.ToLower() != "delete") && string.IsNullOrEmpty(request.Body))
             {
-                Console.WriteLine("YOU CANT PASS!!!");
                 var response = new Response { Status = "4 missing body" };
                 WriteToStream(stream, ToJson(response));
                 Console.WriteLine(response.Status);
@@ -149,7 +158,6 @@ public class Server
                 WriteToStream(stream, ToJson(response));
                 Console.WriteLine(response.Status);
                 return;
-
             }
 
             // Validate ID for Read, Update and Delete
@@ -185,7 +193,6 @@ public class Server
                     EchoRequestHandle(request, stream);
                     break;
                 default:
-                    // This should not happen due to earlier validation
                     break;
             }
 
@@ -208,14 +215,22 @@ public class Server
     }
     private void CreateRequestHandle(Request request, NetworkStream stream)
     {
+        var newCategory = JsonSerializer.Deserialize<Category>(request.Body, options);
+
+        newCategory.Id = nextCategoryId++;
+        categories.Add(newCategory);
+
         var response = new Response
         {
             Status = "2 Created",
-            Body = request.Body
+            Body = JsonSerializer.Serialize(newCategory, options)
         };
-        var jason = ToJson(response);
-        WriteToStream(stream, jason);
+
+        WriteToStream(stream, ToJson(response));
+        Console.WriteLine(response.Status + " " + response.Body);
     }
+
+
     private void ReadRequestHandle(Request request, NetworkStream stream)
     {
         var response = new Response
@@ -230,7 +245,7 @@ public class Server
     {
         var response = new Response
         {
-            Status = "3 Updated",
+            Status = "1 Ok",
             Body = request.Body
         };
         var jason = ToJson(response);
