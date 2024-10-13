@@ -125,7 +125,7 @@ public class Server
                 return;
             }
             // Validate that create doesn't have ID
-            if (request.Method.ToLower() == "Create" && IsValidID(request.Path))
+            if (request.Method.ToLower() == "create" && IsValidID(request.Path))
             {
                 Console.WriteLine("YOU SHALL NOT PASS!");
                 var response = new Response { Status = "4 Bad Request" };
@@ -136,7 +136,7 @@ public class Server
             }
 
             // Validate ID for Read, Update and Delete
-            if ((request.Method.ToLower() == "Read" || request.Method.ToLower() == "Update" || request.Method.ToLower() == "Delete") && !IsValidID(request.Path))
+            if ((request.Method.ToLower() == "read" || request.Method.ToLower() == "update" || request.Method.ToLower() == "delete") && !IsValidID(request.Path))
             {
                 var response = new Response { Status = "4 Bad Request" };
                 WriteToStream(stream, ToJson(response));
