@@ -124,6 +124,25 @@ public class Server
                 Console.WriteLine(response.Status);
                 return;
             }
+            // Validate that create doesn't have ID
+            if (request.Method.ToLower() == "Create" && IsValidID(request.Path))
+            {
+                Console.WriteLine("YOU SHALL NOT PASS!");
+                var response = new Response { Status = "4 Bad Request" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+
+            }
+
+            // Validate ID for Read, Update and Delete
+            if ((request.Method.ToLower() == "Read" || request.Method.ToLower() == "Update" || request.Method.ToLower() == "Delete") && !IsValidID(request.Path))
+            {
+                var response = new Response { Status = "4 Bad Request" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
 
             // Validate Body for methods that require it
             if ((request.Method.ToLower() == "create" || request.Method.ToLower() == "update" || request.Method.ToLower() == "echo")
@@ -264,6 +283,13 @@ public class Server
             return true;
         }
         else return false;
+    }
+    private bool IsValidID(string path)
+    {
+        string[] SegmentsPath = path.Split('/');
+        if (int.TryParse(SegmentsPath[^1],out _)){
+            return true;
+        } else return false;
     }
         public static string ToJson(Response response)
     {
