@@ -160,9 +160,15 @@ public class Server
                 Console.WriteLine(response.Status);
                 return;
             }
-
+            if (request.Method.ToLower() == "read" && !IsValidLastSegment(request.Path))
+            {
+                var response = new Response { Status = "4 Bad Request" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
             // Validate ID for Read, Update and Delete
-            if ((request.Method.ToLower() == "read" || request.Method.ToLower() == "update" || request.Method.ToLower() == "delete") && !IsValidID(request.Path))
+            if ((/*request.Method.ToLower() == "read" ||*/ request.Method.ToLower() == "update" || request.Method.ToLower() == "delete") && !IsValidID(request.Path))
             {
                 var response = new Response { Status = "4 Bad Request" };
                 WriteToStream(stream, ToJson(response));
@@ -170,7 +176,7 @@ public class Server
                 return;
             }
             // Validate ID if its within range of the ID list
-            if ((request.Method.ToLower() == "read" || request.Method.ToLower() == "update" || request.Method.ToLower() == "delete") && !IsValidInt(request.Path))
+            if ((/*request.Method.ToLower() == "read" ||*/ request.Method.ToLower() == "update" || request.Method.ToLower() == "delete") && !IsValidInt(request.Path))
             {
                 var response = new Response { Status = "5 Not found" };
                 WriteToStream(stream, ToJson(response));
@@ -233,21 +239,39 @@ public class Server
             Status = "2 Created",
             Body = JsonSerializer.Serialize(newCategory, options)
         };
-
         WriteToStream(stream, ToJson(response));
-        Console.WriteLine(response.Status + " " + response.Body);
     }
 
 
     private void ReadRequestHandle(Request request, NetworkStream stream)
     {
-        var response = new Response
+        Response response;
+
+        // Check if the path ends with an ID
+        if (IsValidInt(request.Path))
         {
-            Status = "1 Ok",
-            Body = request.Body
-        };
-        var jason = ToJson(response);
-        WriteToStream(stream, jason);
+            // Fetch the specific category by ID
+            var category = categories[GetIdFromPath(request.Path)];
+            response = new Response
+            {
+                Status = "1 Ok",
+                Body = JsonSerializer.Serialize(category, options)
+            };
+            Console.WriteLine(response.Status + " " + response.Body);
+        }
+        else
+        {
+            // Return all categories
+            response = new Response
+            {
+                Status = "1 Ok",
+                Body = JsonSerializer.Serialize(categories, options)
+
+            };
+            Console.WriteLine(response.Status + " " + response.Body);
+        }
+        var jsonResponse = ToJson(response);
+        WriteToStream(stream, jsonResponse);
     }
     private void DeleteRequestHandle(Request request, NetworkStream stream)
     {
@@ -300,6 +324,19 @@ public class Server
             return false;
         }
     }
+    private static bool IsValidLastSegment(string path) //Validates there is 3 segments and last is a number or not
+    {
+        string[] SegmentsPath = path.Split('/');
+        if (SegmentsPath.Length == 4 && !int.TryParse(SegmentsPath[3], out _))
+        {
+            return false;
+        }
+        else
+        {
+            return true;
+        }
+
+    }
     private bool IsValidPath(string path)
     {
         if (path.StartsWith("/api/categories"))
@@ -332,6 +369,12 @@ public class Server
             return false;
         }
     }
+    private static int GetIdFromPath(string path)
+    {
+        string[] segments = path.Split('/');
+        return int.Parse(segments[^1]);
+    }
+
     public static string ToJson(Response response)
     {
         return JsonSerializer.Serialize(response, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
