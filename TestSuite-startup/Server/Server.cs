@@ -29,7 +29,7 @@ public class Server
         categories.Add(new Category { Id = nextCategoryId++, Name = "Beverages" });
         categories.Add(new Category { Id = nextCategoryId++, Name = "Condiments" });
         categories.Add(new Category { Id = nextCategoryId++, Name = "Confections" });
-        categories.Add(new Category { Id = nextCategoryId++, Name = "Condiments" });
+      //  categories.Add(new Category { Id = nextCategoryId++, Name = "Condiments" });
 
 
 
@@ -73,7 +73,7 @@ public class Server
                 return;
             }
 
-            if (msg.Trim() == "{}") 
+            if (msg.Trim() == "{}")
             {
                 var response = new Response { Status = "missing method, missing date" };
                 WriteToStream(stream, ToJson(response));
@@ -131,7 +131,7 @@ public class Server
                 Console.WriteLine(response.Status);
                 return;
             }
-      
+
 
             if (!IsValidUnixTime(request.Date))
             {
@@ -142,10 +142,10 @@ public class Server
             }
 
 
-            
+
 
             // Validate if Path is correct
-            if (request.Method.ToLower() !="echo" && !IsValidPath(request.Path))
+            if (request.Method.ToLower() != "echo" && !IsValidPath(request.Path))
             {
                 var response = new Response { Status = "4 Bad Request" };
                 WriteToStream(stream, ToJson(response));
@@ -153,7 +153,7 @@ public class Server
                 return;
             }
             // Validate that create doesn't have ID
-            if (request.Method.ToLower() == "create" && IsValidID(request.Path))
+            if (request.Method.ToLower() == "create" && IsNumber(request.Path))
             {
                 var response = new Response { Status = "4 Bad Request" };
                 WriteToStream(stream, ToJson(response));
@@ -167,8 +167,8 @@ public class Server
                 Console.WriteLine(response.Status);
                 return;
             }
-            // Validate ID for Read, Update and Delete
-            if ((/*request.Method.ToLower() == "read" ||*/ request.Method.ToLower() == "update" || request.Method.ToLower() == "delete") && !IsValidID(request.Path))
+            // Validate ID, Update and Delete
+            if ((/*request.Method.ToLower() == "read" ||*/ request.Method.ToLower() == "update" || request.Method.ToLower() == "delete") && !IsNumber(request.Path))
             {
                 var response = new Response { Status = "4 Bad Request" };
                 WriteToStream(stream, ToJson(response));
@@ -177,6 +177,13 @@ public class Server
             }
             // Validate ID if its within range of the ID list
             if ((/*request.Method.ToLower() == "read" ||*/ request.Method.ToLower() == "update" || request.Method.ToLower() == "delete") && !IsValidInt(request.Path))
+            {
+                var response = new Response { Status = "5 Not found" };
+                WriteToStream(stream, ToJson(response));
+                Console.WriteLine(response.Status);
+                return;
+            }
+            if (request.Method.ToLower() == "read" && IsValidLastSegment(request.Path) && !IsValidInt(request.Path))
             {
                 var response = new Response { Status = "5 Not found" };
                 WriteToStream(stream, ToJson(response));
@@ -250,8 +257,9 @@ public class Server
         // Check if the path ends with an ID
         if (IsValidInt(request.Path))
         {
-            // Fetch the specific category by ID
-            var category = categories[GetIdFromPath(request.Path)];
+            Console.WriteLine("YESYESYESEYSEYS EYSEYSEYS YSESYEYSE");
+           // Fetch the specific category by ID
+           var category = categories[GetIdFromPath(request.Path)];
             response = new Response
             {
                 Status = "1 Ok",
@@ -261,8 +269,9 @@ public class Server
         }
         else
         {
-            // Return all categories
-            response = new Response
+            Console.WriteLine("NONONONONONONONNONONO");
+           // Return all categories
+           response = new Response
             {
                 Status = "1 Ok",
                 Body = JsonSerializer.Serialize(categories, options)
@@ -307,12 +316,12 @@ public class Server
         var buffer = Encoding.UTF8.GetBytes(msg); //Encode again
         stream.Write(buffer);
     }
-    private bool IsValidUnixTime(string date)
+    private static bool IsValidUnixTime(string date)
     {
         return long.TryParse(date, out long timestamp) && timestamp > 0;
     }
 
-    private bool IsValidJason(string body) //inspired by : https://code-maze.com/csharp-how-to-ensure-a-string-is-valid-json/
+    private static bool IsValidJason(string body) //inspired by : https://code-maze.com/csharp-how-to-ensure-a-string-is-valid-json/
     {
         try
         {
@@ -337,7 +346,7 @@ public class Server
         }
 
     }
-    private bool IsValidPath(string path)
+    private static bool IsValidPath(string path)
     {
         if (path.StartsWith("/api/categories"))
         {
@@ -357,7 +366,7 @@ public class Server
             return false;
         }
     }
-    private bool IsValidID(string path) //Validates if the ID is a number
+    private static bool IsNumber(string path) //Validates if the ID is a number
     {
         string[] SegmentsPath = path.Split('/');
         if (int.TryParse(SegmentsPath[^1],out _))
