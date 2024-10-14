@@ -282,28 +282,71 @@ public class Server
 
     private void DeleteRequestHandle(Request request, NetworkStream stream)
     {
-        lock (categoriesLock) // Locking the categories list
+        var response = new Response();
+
+        if (IsValidInt(request.Path))
         {
-            var category = categories[GetIdFromPath(request.Path)-1];
-            categories.Remove(category);
-            var response = new Response
+            int id = GetIdFromPath(request.Path);
+
+            lock (categoriesLock) // Locking the categories list
             {
-                Status = "1 Ok",
-                Body = request.Body
-            };
-            var jason = ToJson(response);
-            WriteToStream(stream, jason);
+                var category = categories.FirstOrDefault(c => c.Id == id);
+                if (category != null)
+                {
+                    categories.Remove(category);
+                    response.Status = "1 Ok";
+                    response.Body = $"Category with ID {id} deleted.";
+                }
+                else
+                {
+                    response.Status = "5 Not found";
+                    response.Body = $"Category with ID {id} not found.";
+                }
+            }
         }
+        else
+        {
+            response.Status = "4 Bad Request";
+            response.Body = "Invalid ID.";
+        }
+
+        var jsonResponse = ToJson(response);
+        WriteToStream(stream, jsonResponse);
     }
     private void UpdateRequestHandle(Request request, NetworkStream stream)
     {
-        var response = new Response
+        var response = new Response();
+
+        if (IsValidInt(request.Path))
         {
-            Status = "3 Updated",
-            Body = request.Body
-        };
-        var jason = ToJson(response);
-        WriteToStream(stream, jason);
+            int id = GetIdFromPath(request.Path);
+
+            lock (categoriesLock) // Locking the categories list
+            {
+                var category = categories.FirstOrDefault(c => c.Id == id);
+                if (category != null)
+                {
+                    var updatedCategory = JsonSerializer.Deserialize<Category>(request.Body, options);
+                    category.Name = updatedCategory.Name;
+
+                    response.Status = "3 Updated";
+                    response.Body = JsonSerializer.Serialize(category, options);
+                }
+                else
+                {
+                    response.Status = "5 Not found";
+                    response.Body = $"Category with ID {id} not found.";
+                }
+            }
+        }
+        else
+        {
+            response.Status = "4 Bad Request";
+            response.Body = "Invalid ID.";
+        }
+
+        var jsonResponse = ToJson(response);
+        WriteToStream(stream, jsonResponse);
     }
 
 
