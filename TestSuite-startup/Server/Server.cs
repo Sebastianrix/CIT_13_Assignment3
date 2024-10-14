@@ -17,6 +17,7 @@ public class Server
     private static List<Category> categories = new List<Category>();
     private static int nextCategoryId = 1;
     private static readonly object categoriesLock = new object();
+
     // JSON options to use camelCase property names
     private static readonly JsonSerializerOptions options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
@@ -59,12 +60,11 @@ public class Server
         {
 
             var stream = client.GetStream(); //picks up stream from client
-            string msg = ReadFromStream(stream); //calls read from stream method
+            string msg = ReadFromStream(stream);
 
 
             Console.WriteLine($"Message from client decoded is : {msg}");
             string[] validMethods = ["create", "read", "update", "delete", "echo"];
-
 
             if (string.IsNullOrWhiteSpace(msg))
             {
@@ -73,7 +73,6 @@ public class Server
                 Console.WriteLine(response.Status);
                 return;
             }
-
             if (msg.Trim() == "{}")
             {
                 var response = new Response { Status = "missing method, missing date" };
@@ -132,8 +131,6 @@ public class Server
                 Console.WriteLine(response.Status);
                 return;
             }
-
-
             if (!IsValidUnixTime(request.Date))
             {
                 var response = new Response { Status = "4 Illegal date" };
@@ -141,10 +138,6 @@ public class Server
                 Console.WriteLine(response.Status);
                 return;
             }
-
-
-
-
             // Validate if Path is correct
             if (request.Method.ToLower() != "echo" && !IsValidPath(request.Path))
             {
@@ -243,16 +236,16 @@ public class Server
         {
             var newCategory = JsonSerializer.Deserialize<Category>(request.Body, options);
 
-        
+
             newCategory.Id = nextCategoryId++;
             categories.Add(newCategory);
-        
-        var response = new Response
-        {
-            Status = "2 Created",
-            Body = JsonSerializer.Serialize(newCategory, options)
-        };
-        WriteToStream(stream, ToJson(response));
+
+            var response = new Response
+            {
+                Status = "2 Created",
+                Body = JsonSerializer.Serialize(newCategory, options)
+            };
+            WriteToStream(stream, ToJson(response));
         }
     }
 
@@ -267,7 +260,7 @@ public class Server
             if (IsValidInt(request.Path))
             {
                 // Fetch the specific category by ID
-                var category = categories[GetIdFromPath(request.Path)-1];
+                var category = categories[GetIdFromPath(request.Path) - 1];
                 response = new Response { Status = "1 Ok", Body = JsonSerializer.Serialize(category, options) };
             }
             else
@@ -288,7 +281,7 @@ public class Server
         {
             int id = GetIdFromPath(request.Path);
 
-            lock (categoriesLock) // Locking the categories list
+            lock (categoriesLock) // Locking
             {
                 var category = categories.FirstOrDefault(c => c.Id == id);
                 if (category != null)
@@ -321,7 +314,7 @@ public class Server
         {
             int id = GetIdFromPath(request.Path);
 
-            lock (categoriesLock) // Locking the categories list
+            lock (categoriesLock) // Locking 
             {
                 var category = categories.FirstOrDefault(c => c.Id == id);
                 if (category != null)
